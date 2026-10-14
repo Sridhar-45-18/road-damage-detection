@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: road-damage-detection
+    env: docker
+    plan: free
+    region: oregon
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000

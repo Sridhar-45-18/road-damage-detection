@@ -459,12 +459,13 @@ def model_info():
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("  Road Damage Detection Web Application")
-    print("  Open: http://localhost:5000")
+    port = int(os.environ.get("PORT", 5000))
+    print(f"  Open: http://localhost:{port}")
     print("=" * 60 + "\n")
 
     app.run(
         host="0.0.0.0",
-        port=5000,
+        port=port,
         debug=False,
         threaded=True
     )
