@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Real-time road damage detection using your laptop camera. Detect cracks and potholes live with AI-powered bounding boxes.">
+    <title>Live Camera Feed — RoadScan AI</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">
+                <div class="nav-brand-icon">🛣️</div>
+                <span>RoadScan AI</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/" class="nav-link">
+                    <span class="nav-link-icon">🏠</span>
+                    <span>Home</span>
+                </a></li>
+                <li><a href="/image" class="nav-link">
+                    <span class="nav-link-icon">🖼️</span>
+                    <span>Image</span>
+                </a></li>
+                <li><a href="/video" class="nav-link">
+                    <span class="nav-link-icon">🎬</span>
+                    <span>Video</span>
+                </a></li>
+                <li><a href="/live" class="nav-link active">
+                    <span class="nav-link-icon">📹</span>
+                    <span>Live Feed</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header fade-in">
+            <h1>📹 Live Camera Feed</h1>
+            <p>Real-time road damage detection from your camera</p>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls-row fade-in">
+            <button class="btn btn-primary btn-lg" id="startBtn" onclick="startCamera()">
+                ▶ Start Camera
+            </button>
+            <button class="btn btn-danger btn-lg hidden" id="stopBtn" onclick="stopCamera()">
+                ⏹ Stop Camera
+            </button>
+        </div>
+
+        <!-- Live Grid -->
+        <div class="live-grid fade-in">
+            <!-- Main Feed -->
+            <div class="live-feed-container">
+                <div class="live-feed-header">
+                    <div class="left">
+                        <div class="live-indicator" id="liveIndicator"></div>
+                        <span id="feedLabel">Camera Feed — Waiting</span>
+                    </div>
+                    <span id="fpsDisplay" style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--neutral-400);">0 FPS</span>
+                </div>
+                <div class="live-feed-body" id="feedBody">
+                    <!-- Hidden video element for camera capture -->
+                    <video id="cameraVideo" autoplay playsinline muted></video>
+                    <!-- Canvas for capturing frames (hidden) -->
+                    <canvas id="captureCanvas" style="display: none;"></canvas>
+                    <!-- Display detected frame -->
+                    <img id="detectedFrame" alt="Detection feed" style="display: none;">
+                    <!-- Placeholder -->
+                    <div class="live-feed-placeholder" id="placeholder">
+                        <span class="icon">📷</span>
+                        <p>Click "Start Camera" to begin</p>
+                        <p style="font-size: 0.8rem; margin-top: 0.5rem;">Camera feed will be captured at 60 FPS</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="live-sidebar">
+                <!-- Performance Stats -->
+                <div class="sidebar-card">
+                    <div class="sidebar-card-header">⚡ Performance</div>
+                    <div class="sidebar-card-body">
+                        <div class="live-stat-row">
+                            <span class="live-stat-label">Capture FPS</span>
+                            <span class="live-stat-value" id="captureFps">—</span>
+                        </div>
+                        <div class="live-stat-row">
+                            <span class="live-stat-label">Detection FPS</span>
+                            <span class="live-stat-value" id="detectionFps">—</span>
+                        </div>
+                        <div class="live-stat-row">
+                            <span class="live-stat-label">Inference Time</span>
+                            <span class="live-stat-value" id="inferenceTime">—</span>
+                        </div>
+                        <div class="live-stat-row">
+                            <span class="live-stat-label">Resolution</span>
+                            <span class="live-stat-value" id="resolution">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detection Count -->
+                <div class="sidebar-card">
+                    <div class="sidebar-card-header">🔍 Current Detections</div>
+                    <div class="sidebar-card-body" id="currentDetections">
+                        <div style="text-align: center; color: var(--neutral-400); font-size: 0.85rem; padding: 1rem 0;">
+                            No detections yet
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Session Stats -->
+                <div class="sidebar-card">
+                    <div class="sidebar-card-header">📊 Session Stats</div>
+                    <div class="sidebar-card-body">
+                        <div class="live-stat-row">
+                            <span class="live-stat-label">Frames Sent</span>
+                            <span class="live-stat-value" id="framesSent">0</span>
+                        </div>
+                        <div class="live-stat-row">
+                            <span class="live-stat-label">Total Detections</span>
+                            <span class="live-stat-value" id="totalDetections">0</span>
+                        </div>
+                        <div class="live-stat-row">
+                            <span class="live-stat-label">Session Time</span>
+                            <span class="live-stat-value" id="sessionTime">0s</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>RoadScan AI — Deep Learning Road Damage Detection &bull; YOLO26n &bull; RDD2022 Dataset</p>
+    </footer>
+
+    <script>
+        // ============================================================
+        // STATE
+        // ============================================================
+        let cameraStream = null;
+        let isRunning = false;
+        let isPendingRequest = false;
+
+        // Stats
+        let framesSent = 0;
+        let totalDetections = 0;
+        let sessionStartTime = null;
+        let sessionTimer = null;
+
+        // FPS tracking
+        let lastDetectionTime = 0;
+        let detectionFpsValues = [];
+        let captureFrameCount = 0;
+        let lastCaptureFpsTime = 0;
+
+        // DOM
+        const cameraVideo = document.getElementById('cameraVideo');
+        const captureCanvas = document.getElementById('captureCanvas');
+        const detectedFrame = document.getElementById('detectedFrame');
+        const placeholder = document.getElementById('placeholder');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const liveIndicator = document.getElementById('liveIndicator');
+        const feedLabel = document.getElementById('feedLabel');
+
+        // ============================================================
+        // START CAMERA
+        // ============================================================
+        async function startCamera() {
+            try {
+                // Request camera at 60fps
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 60, min: 30 }
+                    },
+                    audio: false
+                });
+
+                cameraVideo.srcObject = cameraStream;
+                await cameraVideo.play();
+
+                // Get actual video dimensions
+                const track = cameraStream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                const actualFps = settings.frameRate || 30;
+
+                captureCanvas.width = settings.width || 1280;
+                captureCanvas.height = settings.height || 720;
+
+                document.getElementById('resolution').textContent =
+                    `${captureCanvas.width}×${captureCanvas.height}`;
+                document.getElementById('captureFps').textContent =
+                    `${Math.round(actualFps)}`;
+
+                // UI state
+                isRunning = true;
+                placeholder.style.display = 'none';
+                detectedFrame.style.display = 'block';
+                startBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+                liveIndicator.classList.add('active');
+                feedLabel.textContent = 'Camera Feed — Live';
+
+                // Session
+                framesSent = 0;
+                totalDetections = 0;
+                sessionStartTime = Date.now();
+                lastCaptureFpsTime = Date.now();
+                sessionTimer = setInterval(updateSessionTime, 1000);
+
+                // Start detection loop
+                requestAnimationFrame(detectionLoop);
+
+                showToast('Camera started successfully', 'success');
+
+            } catch (err) {
+                console.error('Camera error:', err);
+                showToast('Camera access denied or unavailable: ' + err.message, 'error');
+            }
+        }
+
+        // ============================================================
+        // STOP CAMERA
+        // ============================================================
+        function stopCamera() {
+            isRunning = false;
+
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+
+            cameraVideo.srcObject = null;
+
+            // UI
+            placeholder.style.display = '';
+            detectedFrame.style.display = 'none';
+            startBtn.classList.remove('hidden');
+            stopBtn.classList.add('hidden');
+            liveIndicator.classList.remove('active');
+            feedLabel.textContent = 'Camera Feed — Stopped';
+
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+                sessionTimer = null;
+            }
+
+            showToast('Camera stopped', '');
+        }
+
+        // ============================================================
+        // DETECTION LOOP
+        // ============================================================
+        function detectionLoop() {
+            if (!isRunning) return;
+
+            // If no pending request, send a new frame
+            if (!isPendingRequest) {
+                sendFrame();
+            }
+
+            // Continue the loop
+            requestAnimationFrame(detectionLoop);
+        }
+
+        async function sendFrame() {
+            if (!isRunning || isPendingRequest) return;
+
+            isPendingRequest = true;
+
+            try {
+                const ctx = captureCanvas.getContext('2d');
+                ctx.drawImage(cameraVideo, 0, 0, captureCanvas.width, captureCanvas.height);
+
+                // Convert to base64 JPEG
+                const frameData = captureCanvas.toDataURL('image/jpeg', 0.8);
+
+                framesSent++;
+                document.getElementById('framesSent').textContent = framesSent;
+
+                const response = await fetch('/api/detect/frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ frame: frameData })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Display detected frame
+                    detectedFrame.src = data.frame;
+
+                    // Update inference time
+                    document.getElementById('inferenceTime').textContent =
+                        `${data.inference_ms}ms`;
+
+                    // Calculate detection FPS
+                    const now = performance.now();
+                    if (lastDetectionTime > 0) {
+                        const elapsed = now - lastDetectionTime;
+                        const fps = 1000 / elapsed;
+                        detectionFpsValues.push(fps);
+                        if (detectionFpsValues.length > 10) detectionFpsValues.shift();
+                        const avgFps = detectionFpsValues.reduce((a, b) => a + b, 0) / detectionFpsValues.length;
+                        document.getElementById('detectionFps').textContent =
+                            `${avgFps.toFixed(1)}`;
+                        document.getElementById('fpsDisplay').textContent =
+                            `${avgFps.toFixed(1)} FPS`;
+                    }
+                    lastDetectionTime = now;
+
+                    // Update detection counts
+                    const detections = data.detections || [];
+                    totalDetections += detections.length;
+                    document.getElementById('totalDetections').textContent = totalDetections;
+
+                    // Update current detections sidebar
+                    updateCurrentDetections(detections);
+                }
+            } catch (err) {
+                // Silently handle network errors to avoid spam
+                console.warn('Frame detection error:', err.message);
+            } finally {
+                isPendingRequest = false;
+            }
+        }
+
+        // ============================================================
+        // UPDATE UI
+        // ============================================================
+        function updateCurrentDetections(detections) {
+            const container = document.getElementById('currentDetections');
+
+            if (detections.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: var(--neutral-400); font-size: 0.85rem; padding: 0.5rem 0;">
+                        ✅ No damage detected
+                    </div>
+                `;
+                return;
+            }
+
+            // Group by class
+            const grouped = {};
+            detections.forEach(d => {
+                if (!grouped[d.class_name]) {
+                    grouped[d.class_name] = { count: 0, maxConf: 0 };
+                }
+                grouped[d.class_name].count++;
+                grouped[d.class_name].maxConf = Math.max(grouped[d.class_name].maxConf, d.confidence);
+            });
+
+            const dotClasses = {
+                'Longitudinal Crack': 'dot-longitudinal',
+                'Transverse Crack': 'dot-transverse',
+                'Alligator Crack': 'dot-alligator',
+                'Other Corruption': 'dot-other',
+                'Pothole': 'dot-pothole'
+            };
+
+            let html = '';
+            for (const [name, info] of Object.entries(grouped)) {
+                html += `
+                    <div class="live-stat-row">
+                        <span class="detection-name" style="gap: 6px; font-size: 0.8rem;">
+                            <span class="detection-dot ${dotClasses[name] || ''}" style="width: 8px; height: 8px;"></span>
+                            ${name}
+                        </span>
+                        <span class="live-stat-value" style="font-size: 0.8rem;">${info.count} (${(info.maxConf * 100).toFixed(0)}%)</span>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        function updateSessionTime() {
+            if (!sessionStartTime) return;
+            const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            document.getElementById('sessionTime').textContent =
+                mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+        }
+
+        // ============================================================
+        // TOAST
+        // ============================================================
+        function showToast(message, type = '') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast show ${type}`;
+            setTimeout(() => { toast.className = 'toast'; }, 3500);
+        }
+
+        // ============================================================
+        // NAV SCROLL
+        // ============================================================
+        window.addEventListener('scroll', () => {
+            document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 10);
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (isRunning) stopCamera();
+        });
+    </script>
+</body>
+</html>

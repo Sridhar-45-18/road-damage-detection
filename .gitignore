@@ -32,3 +32,9 @@ Thumbs.db
 # Keep handoff weights
 !weights/
 !weights/*.pt
+
+# Webapp temporary files
+webapp/uploads/*
+!webapp/uploads/.gitkeep
+webapp/results_web/*
+!webapp/results_web/.gitkeep

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Upload a road image to detect cracks, potholes, and surface damage using AI. Compare original and detected images side by side.">
+    <title>Image Detection — RoadScan AI</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">
+                <div class="nav-brand-icon">🛣️</div>
+                <span>RoadScan AI</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/" class="nav-link">
+                    <span class="nav-link-icon">🏠</span>
+                    <span>Home</span>
+                </a></li>
+                <li><a href="/image" class="nav-link active">
+                    <span class="nav-link-icon">🖼️</span>
+                    <span>Image</span>
+                </a></li>
+                <li><a href="/video" class="nav-link">
+                    <span class="nav-link-icon">🎬</span>
+                    <span>Video</span>
+                </a></li>
+                <li><a href="/live" class="nav-link">
+                    <span class="nav-link-icon">📹</span>
+                    <span>Live Feed</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header fade-in">
+            <h1>🖼️ Image Detection</h1>
+            <p>Upload a road image to detect and classify damage types</p>
+        </div>
+
+        <div class="container">
+            <!-- Upload Zone -->
+            <div class="upload-zone fade-in" id="uploadZone">
+                <span class="upload-zone-icon">📤</span>
+                <h3>Drop your road image here</h3>
+                <p>Supports JPG, PNG, BMP, WebP</p>
+                <div class="browse-btn">Browse Files</div>
+                <input type="file" id="imageInput" accept="image/*">
+            </div>
+
+            <!-- File Info & Detect Button -->
+            <div class="controls-row hidden" id="controlsRow">
+                <span id="fileName" style="color: var(--neutral-500); font-size: 0.9rem;"></span>
+                <button class="btn btn-primary btn-lg" id="detectBtn" onclick="runDetection()">
+                    🔍 Detect Damage
+                </button>
+                <button class="btn btn-secondary" onclick="resetUpload()">
+                    ↺ Reset
+                </button>
+            </div>
+
+            <!-- Results -->
+            <div class="results-section hidden" id="resultsSection">
+                <div class="results-header">
+                    <h2>Detection Results</h2>
+                    <span id="inferenceTime" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--neutral-500);"></span>
+                </div>
+
+                <!-- Stats -->
+                <div class="stats-grid" id="statsGrid"></div>
+
+                <!-- Image Comparison -->
+                <div class="image-comparison">
+                    <div class="image-card">
+                        <div class="image-card-header">
+                            <span class="tag tag-original">Original</span>
+                            Uploaded Image
+                        </div>
+                        <div class="image-card-body">
+                            <img id="originalImage" alt="Original road image">
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <div class="image-card-header">
+                            <span class="tag tag-detected">Detected</span>
+                            Damage Detection
+                        </div>
+                        <div class="image-card-body">
+                            <img id="detectedImage" alt="Detected damage image">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detection Details -->
+                <div class="detection-list" id="detectionList">
+                    <div class="detection-list-header">Damage Breakdown</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Analyzing Image...</div>
+        <div class="loading-subtext">Running YOLO26n detection model</div>
+        <div class="progress-bar-container">
+            <div class="progress-bar indeterminate"></div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>RoadScan AI — Deep Learning Road Damage Detection &bull; YOLO26n &bull; RDD2022 Dataset</p>
+    </footer>
+
+    <script>
+        // ---- State ----
+        let selectedFile = null;
+
+        // ---- DOM refs ----
+        const uploadZone = document.getElementById('uploadZone');
+        const imageInput = document.getElementById('imageInput');
+        const controlsRow = document.getElementById('controlsRow');
+        const fileName = document.getElementById('fileName');
+        const resultsSection = document.getElementById('resultsSection');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // ---- Drag & Drop ----
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // ---- File Selection ----
+        imageInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showToast('Please select an image file', 'error');
+                return;
+            }
+            selectedFile = file;
+            fileName.textContent = `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            uploadZone.classList.add('has-file');
+            controlsRow.classList.remove('hidden');
+        }
+
+        // ---- Detection ----
+        async function runDetection() {
+            if (!selectedFile) return;
+
+            loadingOverlay.classList.add('active');
+            resultsSection.classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            try {
+                const response = await fetch('/api/detect/image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Detection failed');
+                }
+
+                displayResults(data);
+                showToast(`Found ${data.total_detections} damage${data.total_detections !== 1 ? 's' : ''}`, 'success');
+
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                loadingOverlay.classList.remove('active');
+            }
+        }
+
+        // ---- Display Results ----
+        function displayResults(data) {
+            // Images
+            document.getElementById('originalImage').src = data.original_url;
+            document.getElementById('detectedImage').src = data.detected_url;
+
+            // Inference time
+            document.getElementById('inferenceTime').textContent = `⏱ ${data.inference_time_ms}ms`;
+
+            // Stats
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = '';
+
+            const stats = [
+                { value: data.total_detections, label: 'Total Detections' },
+                { value: Object.keys(data.damage_summary).length, label: 'Damage Types' },
+                { value: `${data.inference_time_ms}ms`, label: 'Inference Time' }
+            ];
+
+            stats.forEach(stat => {
+                const card = document.createElement('div');
+                card.className = 'stat-card fade-in';
+                card.innerHTML = `
+                    <div class="stat-value">${stat.value}</div>
+                    <div class="stat-label">${stat.label}</div>
+                `;
+                statsGrid.appendChild(card);
+            });
+
+            // Detection details
+            const list = document.getElementById('detectionList');
+            // Keep header, remove old items
+            while (list.children.length > 1) {
+                list.removeChild(list.lastChild);
+            }
+
+            const dotClasses = {
+                'Longitudinal Crack': 'dot-longitudinal',
+                'Transverse Crack': 'dot-transverse',
+                'Alligator Crack': 'dot-alligator',
+                'Other Corruption': 'dot-other',
+                'Pothole': 'dot-pothole'
+            };
+
+            if (data.total_detections === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.innerHTML = '<span class="icon">✅</span><p>No road damage detected in this image</p>';
+                list.appendChild(empty);
+            } else {
+                for (const [name, count] of Object.entries(data.damage_summary)) {
+                    const item = document.createElement('div');
+                    item.className = 'detection-item fade-in';
+                    item.innerHTML = `
+                        <div class="detection-name">
+                            <div class="detection-dot ${dotClasses[name] || ''}"></div>
+                            ${name}
+                        </div>
+                        <div class="detection-count">${count}</div>
+                    `;
+                    list.appendChild(item);
+                }
+            }
+
+            resultsSection.classList.remove('hidden');
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ---- Reset ----
+        function resetUpload() {
+            selectedFile = null;
+            imageInput.value = '';
+            uploadZone.classList.remove('has-file');
+            controlsRow.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+        }
+
+        // ---- Toast ----
+        function showToast(message, type = '') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast show ${type}`;
+            setTimeout(() => { toast.className = 'toast'; }, 3500);
+        }
+
+        // ---- Navbar scroll ----
+        window.addEventListener('scroll', () => {
+            document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 10);
+        });
+    </script>
+</body>
+</html>

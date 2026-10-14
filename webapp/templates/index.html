@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-powered road damage detection using YOLO deep learning. Detect cracks, potholes, and road surface damage from images, videos, and live camera feeds.">
+    <title>RoadScan AI — Road Damage Detection</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">
+                <div class="nav-brand-icon">🛣️</div>
+                <span>RoadScan AI</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/" class="nav-link active">
+                    <span class="nav-link-icon">🏠</span>
+                    <span>Home</span>
+                </a></li>
+                <li><a href="/image" class="nav-link">
+                    <span class="nav-link-icon">🖼️</span>
+                    <span>Image</span>
+                </a></li>
+                <li><a href="/video" class="nav-link">
+                    <span class="nav-link-icon">🎬</span>
+                    <span>Video</span>
+                </a></li>
+                <li><a href="/live" class="nav-link">
+                    <span class="nav-link-icon">📹</span>
+                    <span>Live Feed</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Hero -->
+        <section class="hero fade-in">
+            <div class="hero-badge">
+                <span class="dot"></span>
+                YOLO26n Deep Learning Model
+            </div>
+            <h1>Intelligent <span class="gradient-text">Road Damage</span><br>Detection System</h1>
+            <p>Upload road images, videos, or use your camera for real-time damage detection. Powered by a custom-trained YOLO26n model on the RDD2022 dataset.</p>
+        </section>
+
+        <!-- Feature Cards -->
+        <section class="features-grid slide-up">
+            <a href="/image" class="feature-card">
+                <div class="feature-icon teal">🖼️</div>
+                <h3>Image Detection</h3>
+                <p>Upload a road image and instantly detect cracks, potholes, and other damage. Compare original vs detected side by side.</p>
+                <div class="feature-arrow">Get Started →</div>
+            </a>
+            <a href="/video" class="feature-card">
+                <div class="feature-icon orange">🎬</div>
+                <h3>Video Analysis</h3>
+                <p>Upload a road video for frame-by-frame damage detection. Get an annotated video with all damages highlighted.</p>
+                <div class="feature-arrow">Get Started →</div>
+            </a>
+            <a href="/live" class="feature-card">
+                <div class="feature-icon green">📹</div>
+                <h3>Live Camera Feed</h3>
+                <p>Stream from your laptop camera and detect road damage in real time with bounding boxes overlaid on the live feed.</p>
+                <div class="feature-arrow">Get Started →</div>
+            </a>
+        </section>
+
+        <!-- Damage Types Info -->
+        <section class="info-grid fade-in">
+            <div class="info-card">
+                <div class="class-dot dot-longitudinal"></div>
+                <h4>Longitudinal Crack</h4>
+            </div>
+            <div class="info-card">
+                <div class="class-dot dot-transverse"></div>
+                <h4>Transverse Crack</h4>
+            </div>
+            <div class="info-card">
+                <div class="class-dot dot-alligator"></div>
+                <h4>Alligator Crack</h4>
+            </div>
+            <div class="info-card">
+                <div class="class-dot dot-other"></div>
+                <h4>Other Corruption</h4>
+            </div>
+            <div class="info-card">
+                <div class="class-dot dot-pothole"></div>
+                <h4>Pothole</h4>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>RoadScan AI — Deep Learning Road Damage Detection &bull; YOLO26n &bull; RDD2022 Dataset</p>
+    </footer>
+
+    <script>
+        // Navbar scroll effect
+        window.addEventListener('scroll', () => {
+            const navbar = document.getElementById('navbar');
+            navbar.classList.toggle('scrolled', window.scrollY > 10);
+        });
+    </script>
+</body>
+</html>
